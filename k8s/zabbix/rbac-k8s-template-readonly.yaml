@@ -1,0 +1,24 @@
+# Read-only API access for Zabbix official template "Kubernetes cluster state by HTTP"
+# (see k8s/zabbix/README.md). Apply once, then put the token in host macro {$KUBE.API.TOKEN}.
+#
+#   kubectl apply -f k8s/zabbix/rbac-k8s-template-readonly.yaml
+#   kubectl create token zabbix-k8s-monitor -n zabbix --duration=720h
+#
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zabbix-k8s-monitor
+  namespace: zabbix
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zabbix-k8s-monitor-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: zabbix-k8s-monitor
+    namespace: zabbix

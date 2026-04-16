@@ -1,0 +1,23 @@
+# kind cluster with host ports 80/443 mapped — required for ingress-nginx on localhost.
+# Remote Prometheus scrape uses Ingress paths on :80 (see k8s/monitoring/exporters-remote-ingress.yaml);
+# no extra host ports needed for node-exporter / kube-state-metrics.
+#
+# Create once: kind create cluster --name get-cookin --config=k8s/kind-config-ingress.yaml
+# Changing extraPortMappings requires: kind delete cluster + create again (then redeploy app).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP

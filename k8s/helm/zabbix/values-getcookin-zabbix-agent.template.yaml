@@ -1,0 +1,44 @@
+# Zabbix Agent 2 only — for the Server cluster (kind-get-cookin). Generate real values before Helm:
+#
+#   source k8s/monitoring.secret.env
+#   sed "s|__MONITORING_TAILSCALE_IP__|${MONITORING_TAILSCALE_IP}|g" \
+#     k8s/helm/zabbix/values-getcookin-zabbix-agent.template.yaml \
+#     > k8s/helm/zabbix/values-getcookin-zabbix-agent.yaml
+#
+# Install after the Monitoring-cluster Zabbix Server release is healthy.
+# Release name example: zabbix-agent (different from `zabbix` on the Monitoring cluster).
+
+zabbixImageTag: ubuntu-7.0.16
+
+zabbixServer:
+  enabled: false
+
+zabbixWeb:
+  enabled: false
+
+zabbixWebService:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+zabbixProxy:
+  enabled: false
+
+zabbixAgent:
+  enabled: true
+  runAsSidecar: false
+  runAsDaemonSet: true
+  hostNetwork: true
+  hostRootFsMount: true
+  ZBX_ACTIVE_ALLOW: true
+  ZBX_PASSIVE_ALLOW: true
+  # Outbound to Zabbix Server trapper on the Monitoring Mac: use published port (NodePort / port-forward), not in-cluster 10051.
+  ZBX_SERVER_PORT: 31051
+  # Passive `Server=`: Monitoring (Tailscale) polls agents; kubelet health checks hit :10050 from the kind node — allow that CIDR.
+  # Put kubelet range in ZBX_PASSIVESERVERS only, not in ZBX_SERVER_HOST with a comma: the image merges ZBX_SERVER_HOST into
+  # ServerActive as host:port — 0.0.0.0/0 breaks validation; listing two hosts in HOST can duplicate IPs in ServerActive.
+  ZBX_SERVER_HOST: "__MONITORING_TAILSCALE_IP__"
+  ZBX_PASSIVESERVERS: "172.18.0.0/16"
+  # Empty: active/heartbeat use ZBX_SERVER_HOST + ZBX_SERVER_PORT (same trapper). Do not also set IP:31051 here or some images duplicate.
+  ZBX_ACTIVESERVERS: ""

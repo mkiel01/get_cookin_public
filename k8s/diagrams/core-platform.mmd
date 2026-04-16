@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph clients [Clients]
+    B[Browser]
+  end
+  subgraph ingress [Ingress]
+    ING[Ingress controller]
+  end
+  subgraph ns [Namespace get-cookin]
+    FE[Frontend]
+    API[API]
+    PG[(PostgreSQL)]
+    RD[(Redis)]
+    S3[MinIO]
+  end
+  B --> ING
+  ING -->|UI| FE
+  ING -->|API and images| API
+  API --> PG
+  API --> RD
+  API --> S3

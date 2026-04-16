@@ -1,0 +1,86 @@
+# Default: local kind — load images with `kind load docker-image ...` (see k8s/README.md).
+# Docker Hub: copy values-docker-hub.example.yaml → values-docker-hub.yaml (gitignored) or use -f.
+
+secrets:
+  name: get-cookin-secrets
+
+frontend:
+  image:
+    repository: get_cookin-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Optional Google Analytics 4 (G-xxxxxxxxxx). Empty = no banner, no GA (see frontend /privacy).
+  analytics:
+    gaMeasurementId: ""
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 1000m
+
+recipesService:
+  image:
+    repository: get_cookin-recipes-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 1000m
+  corsOrigins: "http://localhost:3000,http://127.0.0.1:3000,http://get-cookin.local,https://getcookin.online"
+  logLevel: debug
+  logFormat: line
+  jwtCookieSecure: "true"
+  rateLimitMax: "4000"
+  rateLimitAuthMax: "50"
+
+redis:
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+
+minio:
+  image:
+    repository: minio/minio
+    tag: latest
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 10Gi
+
+postgres:
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 5Gi
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 100m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+
+postgresBackup:
+  enabled: true
+  schedule: "0 3 * * *"
+  persistence:
+    size: 2Gi
+  retentionDays: 14
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+  hosts:
+    - get-cookin.local
+    - localhost
+    - getcookin.online

@@ -1,0 +1,8 @@
+tunnel: 54112c43-b807-409b-aa3c-f93c83b324ab
+credentials-file: /Users/mkiel/.cloudflared/54112c43-b807-409b-aa3c-f93c83b324ab.json
+
+# Origin: ingress-nginx on :80 — see docs/cloudflare.md
+ingress:
+  - hostname: getcookin.online
+    service: http://127.0.0.1:80
+  - service: http_status:404

@@ -1,0 +1,48 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: get-cookin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: get-cookin
+    {{- include "get-cookin.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: recipes-service
+                port:
+                  number: 4000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: recipes-service
+                port:
+                  number: 4000
+          - path: /images
+            pathType: Prefix
+            backend:
+              service:
+                name: recipes-service
+                port:
+                  number: 4000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
+  {{- end }}
+{{- end }}

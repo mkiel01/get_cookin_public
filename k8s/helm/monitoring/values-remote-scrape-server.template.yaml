@@ -1,0 +1,35 @@
+# Helm values fragment template — do not pass to Helm directly.
+# Substitute SERVER_TAILSCALE_IP (dollar-brace form in YAML below), then merge with Helm.
+# Commands: docs/monitoring-remote-scrape-getcookin.md (section 2)
+#
+# Zabbix agents (other direction, TCP trapper :10051) cannot use this HTTP-on-:80 pattern — see k8s/zabbix/README.md.
+
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: getcookin-kind-node-exporter
+        scrape_interval: 30s
+        scheme: http
+        metrics_path: /internal/prometheus/node-exporter/metrics
+        static_configs:
+          - targets:
+              - "${SERVER_TAILSCALE_IP}:80"
+            labels:
+              scrape_cluster: get-cookin-kind
+        relabel_configs:
+          - action: replace
+            target_label: cluster
+            replacement: get-cookin-kind
+      - job_name: getcookin-kind-kube-state-metrics
+        scrape_interval: 30s
+        scheme: http
+        metrics_path: /internal/prometheus/kube-state-metrics/metrics
+        static_configs:
+          - targets:
+              - "${SERVER_TAILSCALE_IP}:80"
+            labels:
+              scrape_cluster: get-cookin-kind
+        relabel_configs:
+          - action: replace
+            target_label: cluster
+            replacement: get-cookin-kind

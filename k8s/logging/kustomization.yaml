@@ -1,0 +1,12 @@
+# Monitoring Mac (kind-monitoring): Elasticsearch + Kibana + NodePort for remote Fluentd.
+# Server Mac: apply k8s/logging-agents/ after editing fluentd-env-configmap.yaml — docs/logging-elk.md
+#
+# kubectl apply -k k8s/logging/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - elasticsearch.yaml
+  - elasticsearch-nodeport.yaml
+  - elasticsearch-single-node-settings-job.yaml
+  - kibana.yaml

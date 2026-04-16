@@ -1,0 +1,85 @@
+{{- if .Values.postgresBackup.enabled }}
+{{- $secret := include "get-cookin.secretName" . }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: postgres-backup
+    app.kubernetes.io/component: database-backup
+    {{- include "get-cookin.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.postgresBackup.persistence.size }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: postgres-backup
+    app.kubernetes.io/component: database-backup
+    {{- include "get-cookin.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.postgresBackup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 999
+          containers:
+            - name: pg-dump
+              image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+              imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $secret }}
+                      key: POSTGRES_PASSWORD
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $secret }}
+                      key: POSTGRES_USER
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $secret }}
+                      key: POSTGRES_DB
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+                  STAMP=$(date -u +%Y%m%d-%H%M%S)
+                  OUT="/backups/recipes-${STAMP}.dump"
+                  pg_dump -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f "$OUT"
+                  find /backups -name 'recipes-*.dump' -mtime +{{ .Values.postgresBackup.retentionDays }} -delete
+                  echo "Backup OK: $OUT ($(wc -c < "$OUT") bytes)"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: postgres-backups
+{{- end }}

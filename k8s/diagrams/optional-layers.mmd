@@ -1,0 +1,20 @@
+flowchart TB
+  subgraph app [Core app helm get-cookin]
+    A[Workloads Ingress PVCs]
+  end
+  subgraph obs [Optional monitoring]
+    P[kube-prometheus-stack values]
+    E[Remote scrape exporters]
+  end
+  subgraph logs [Optional logging]
+    F[Fluentd]
+    ES[Elasticsearch]
+    K[Kibana]
+    F --> ES --> K
+  end
+  subgraph zbx [Optional Zabbix]
+    Z[Server and agents]
+  end
+  app -.->|metrics| obs
+  app -.->|pod logs| logs
+  app -.->|optional| zbx

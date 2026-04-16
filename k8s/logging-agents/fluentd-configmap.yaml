@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: logging
+  labels:
+    app: fluentd
+data:
+  fluent.conf: |
+    <system>
+      log_level info
+    </system>
+
+    <source>
+      @type tail
+      @id in_tail_container_logs
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-pos/es-containers.log.pos
+      tag kubernetes.*
+      read_from_head true
+      follow_inodes true
+      <parse>
+        @type cri
+      </parse>
+    </source>
+
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+      @id filter_kube_metadata
+    </filter>
+
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby true
+      <record>
+        log_namespace ${(record["kubernetes"] && record["kubernetes"]["namespace_name"]) ? record["kubernetes"]["namespace_name"] : ""}
+      </record>
+    </filter>
+
+    <filter kubernetes.**>
+      @type grep
+      <regexp>
+        key log_namespace
+        pattern ^get-cookin$
+      </regexp>
+    </filter>
+
+    <filter kubernetes.**>
+      @type record_transformer
+      remove_keys log_namespace
+    </filter>
+
+    <match kubernetes.**>
+      @type elasticsearch
+      @id out_es
+      host "#{ENV['FLUENT_ES_HOST']}"
+      port "#{ENV['FLUENT_ES_PORT']}"
+      logstash_format true
+      logstash_prefix k8s
+      include_tag_key true
+      elasticsearch_version 8
+      suppress_type_name true
+      <buffer>
+        @type file
+        path /var/log/fluentd-bufs/kubernetes.system
+        flush_mode interval
+        flush_interval 5s
+        flush_thread_count 2
+        retry_type exponential_backoff
+        retry_forever true
+        retry_max_interval 30
+        chunk_limit_size 2M
+        queue_limit_length 8
+        overflow_action block
+      </buffer>
+    </match>

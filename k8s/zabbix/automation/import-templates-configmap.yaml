@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zabbix-import-templates-runner
+  namespace: zabbix
+  labels:
+    app.kubernetes.io/name: zabbix
+    app.kubernetes.io/component: template-import
+data:
+  import-rules.json: |
+    {
+      "groups": { "createMissing": true, "updateExisting": true },
+      "hosts": { "createMissing": true, "updateExisting": true },
+      "templates": { "createMissing": true, "updateExisting": true },
+      "templateLinkage": { "createMissing": true },
+      "items": { "createMissing": true, "updateExisting": true },
+      "discoveryRules": { "createMissing": true, "updateExisting": true },
+      "triggers": { "createMissing": true, "updateExisting": true },
+      "graphs": { "createMissing": true, "updateExisting": true },
+      "httptests": { "createMissing": true, "updateExisting": true },
+      "valueMaps": { "createMissing": true, "updateExisting": true }
+    }
+  import.py: |
+    #!/usr/bin/env python3
+    """Zabbix configuration.import via JSON-RPC (stdlib only)."""
+    import json
+    import os
+    import urllib.error
+    import urllib.request
+    from pathlib import Path
+
+    API_URL = os.environ.get(
+        "ZABBIX_API_URL",
+        "http://zabbix-zabbix-web.zabbix.svc.cluster.local/api_jsonrpc.php",
+    )
+    USER = os.environ.get("ZABBIX_API_USER", "Admin")
+    PASSWORD = os.environ.get("ZABBIX_API_PASSWORD", "")
+    RULES_PATH = "/config/import-rules.json"
+    TEMPLATES_DIR = Path("/templates")
+
+    def rpc(payload: dict) -> dict:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            API_URL,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode())
+
+    def main() -> None:
+        if not PASSWORD:
+            raise SystemExit("ZABBIX_API_PASSWORD is required")
+        with open(RULES_PATH, encoding="utf-8") as f:
+            rules = json.load(f)
+        paths = []
+        for pat in ("*.xml", "*.yaml", "*.yml"):
+            paths.extend(sorted(TEMPLATES_DIR.glob(pat)))
+        if not paths:
+            print("No template files under /templates (create ConfigMap zabbix-template-exports).", flush=True)
+            raise SystemExit(0)
+        login = rpc(
+            {
+                "jsonrpc": "2.0",
+                "method": "user.login",
+                "params": {"username": USER, "password": PASSWORD},
+                "id": 1,
+            }
+        )
+        if login.get("error"):
+            raise SystemExit(f"user.login failed: {login}")
+        auth = login.get("result")
+        if not auth:
+            raise SystemExit(f"user.login failed: {login}")
+        req_id = 2
+        try:
+            for path in paths:
+                fmt = "xml" if path.suffix.lower() == ".xml" else "yaml"
+                source = path.read_text(encoding="utf-8")
+                imp = rpc(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "configuration.import",
+                        "params": {
+                            "format": fmt,
+                            "source": source,
+                            "rules": rules,
+                        },
+                        "auth": auth,
+                        "id": req_id,
+                    }
+                )
+                req_id += 1
+                if imp.get("error"):
+                    raise SystemExit(f"import failed for {path}: {imp}")
+                print(json.dumps(imp, indent=2))
+        finally:
+            try:
+                rpc(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "user.logout",
+                        "params": [],
+                        "auth": auth,
+                        "id": 999,
+                    }
+                )
+            except (urllib.error.URLError, OSError):
+                pass
+
+    if __name__ == "__main__":
+        main()

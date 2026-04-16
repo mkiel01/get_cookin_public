@@ -1,0 +1,69 @@
+# One-shot Job: imports every *.xml / *.yaml / *.yml from ConfigMap zabbix-template-exports
+# into Zabbix via API (in-cluster; no port-forward).
+#
+# Prereqs:
+#   kubectl create secret generic zabbix-api-import -n zabbix \
+#     --from-literal=password='YOUR_ZABBIX_WEB_ADMIN_PASSWORD' \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl create configmap zabbix-template-exports -n zabbix \
+#     --from-file=k8s/zabbix/templates/ \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl apply -f k8s/zabbix/automation/import-templates-configmap.yaml
+#   kubectl apply -f k8s/zabbix/automation/import-templates-job.yaml
+#
+# Logs: kubectl logs -n zabbix job/zabbix-import-templates
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zabbix-import-templates
+  namespace: zabbix
+  labels:
+    app.kubernetes.io/name: zabbix
+    app.kubernetes.io/component: template-import
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zabbix
+        app.kubernetes.io/component: template-import
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: import
+          image: python:3.12-slim-bookworm
+          command: ["python", "/config/import.py"]
+          env:
+            - name: ZABBIX_API_USER
+              value: Admin
+            - name: ZABBIX_API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: zabbix-api-import
+                  key: password
+            # Override if your web Service name differs
+            # - name: ZABBIX_API_URL
+            #   value: http://zabbix-zabbix-web.zabbix.svc.cluster.local/api_jsonrpc.php
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: templates
+              mountPath: /templates
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: zabbix-import-templates-runner
+            defaultMode: 0444
+        - name: templates
+          configMap:
+            name: zabbix-template-exports
+            optional: true

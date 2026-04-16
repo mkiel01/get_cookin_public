@@ -1,0 +1,10 @@
+# Apply on the Server Mac (kind-get-cookin) after Elasticsearch + NodePort exist on Monitoring.
+# Set FLUENT_ES_HOST in fluentd-env-configmap.yaml = MONITORING_TAILSCALE_IP from k8s/monitoring.secret.env — see docs/logging-elk.md
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - fluentd-env-configmap.yaml
+  - fluentd-configmap.yaml
+  - fluentd-rbac.yaml
+  - fluentd-daemonset.yaml

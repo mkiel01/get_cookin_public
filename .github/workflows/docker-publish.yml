@@ -1,0 +1,40 @@
+# Build and push app images to Docker Hub (immutable :<git-sha> plus :latest on non-PR runs).
+#
+# --- Disabled for this public infra-only repository ---
+# There is no ./recipes-service (or ./frontend) build context here. Re-enable the triggers
+# below and restore the job when this workflow lives next to the application source, or
+# replace this file with a Helm/Kubernetes validation workflow.
+#
+# Required repo secrets (when enabled):
+#   DOCKERHUB_USERNAME — Docker Hub username (namespace for images)
+#   DOCKERHUB_TOKEN     — access token, not your password
+#
+# name: Docker publish
+#
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#   workflow_dispatch:
+#
+# concurrency:
+#   group: docker-${{ github.workflow }}-${{ github.ref }}
+#   cancel-in-progress: true
+#
+# jobs:
+#   build-and-push:
+#     runs-on: ubuntu-latest
+#     ...
+
+name: Docker publish (disabled)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    # Entire job skipped — no ./recipes-service in this repo; avoids failed Actions on push.
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Placeholder — job is never run (if: false)."

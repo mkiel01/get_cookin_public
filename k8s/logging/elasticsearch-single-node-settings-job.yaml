@@ -1,0 +1,47 @@
+# One-shot Job: single-node ES cannot assign replica shards — indices stay yellow and Kibana 8
+# migrations time out waiting for "green". This sets number_of_replicas=0 (and a default template).
+# Apply with k8s/logging/; the script waits for ES. Safe to re-run after kubectl apply -f (Job name must be unique — delete old Job first if re-applying).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-single-node-settings
+  namespace: logging
+  labels:
+    app: elasticsearch
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-settings-job
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: configure
+          image: curlimages/curl:8.5.0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              ES="http://elasticsearch.logging.svc.cluster.local:9200"
+              echo "Waiting for Elasticsearch HTTP..."
+              for i in $(seq 1 120); do
+                if curl -sf "$ES/_cluster/health" >/dev/null 2>&1; then
+                  echo "Elasticsearch is up."
+                  break
+                fi
+                sleep 3
+              done
+              curl -sf "$ES/_cluster/health" >/dev/null || { echo "Elasticsearch not reachable"; exit 1; }
+              echo "Setting number_of_replicas=0 on existing indices (single-node cluster)..."
+              curl -sS -f -X PUT "$ES/*/_settings?expand_wildcards=all&ignore_unavailable=true" \
+                -H 'Content-Type: application/json' \
+                -d '{"index":{"number_of_replicas":0}}'
+              echo "Installing composable index template (priority 500) for new indices..."
+              curl -sS -f -X PUT "$ES/_index_template/single-node-zero-replicas" \
+                -H 'Content-Type: application/json' \
+                -d '{"index_patterns":["*"],"priority":500,"template":{"settings":{"index":{"number_of_replicas":0}}}}'
+              echo "Done."
+              curl -sS "$ES/_cluster/health?pretty"

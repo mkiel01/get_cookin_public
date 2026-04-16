@@ -1,0 +1,84 @@
+# Ignore rules apply to *this* repository only (e.g. a dedicated public clone).
+# They do not differ per remote; use separate repos if you need different tracking.
+
+# --- Application source (keep dirs on disk locally if you merge from private; do not commit here) ---
+frontend/
+recipes-service/
+# Add any other app/service trees the same way so they cannot be staged by mistake.
+
+# --- Secrets & local env ---
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+k8s/secret.env*
+!k8s/secret.env.example
+k8s/monitoring.secret.env
+k8s/alerting.secret.env
+k8s/helm/get-cookin/values-docker-hub.yaml
+k8s/helm/monitoring/values-remote-scrape-server.yaml
+k8s/helm/zabbix/values-getcookin-zabbix-agent.yaml
+k8s/zabbix/inventory.env
+cloudflared.config.yml
+# Kubeconfig / credentials dropped in tree by mistake
+kubeconfig
+*.kubeconfig
+config/kubeconfig
+
+# --- Terraform (if used later) ---
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# --- Node / frontend build (if app dirs exist locally) ---
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+
+# --- Build outputs ---
+dist/
+build/
+
+# --- OS & IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Nested git repositories (accidental `git init` inside subfolders)
+**/.git/
+
+# --- Logs ---
+*.log
+
+# Docker volumes data (optional)
+# postgres_data/
+
+# Images uploaded by users (optional local mapping)
+images_stored_on_my_computer/
+
+# Test / scratch
+cookies.txt
+
+# --- Backups & dumps ---
+backup_app.sql
+backup_recipesdb.sql
+backup_*.sql
+backup_minio_data.tgz
+backup_minio/
+
+# --- Local ops docs (may reference IPs, topology) ---
+docs/
+
+# --- k8s runbooks & folder READMEs (local detail; public repo uses root README.md only) ---
+k8s/README.md
+k8s/how-to-start-kubernetes-cluster.md
+k8s/monitoring-alerts/README.md
+k8s/zabbix/README.md
+k8s/zabbix/templates/README.txt

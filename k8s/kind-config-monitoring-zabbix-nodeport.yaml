@@ -1,0 +1,17 @@
+# OPTIONAL — only if you create a *new* Monitoring kind cluster and want NodePort 31051 on the host
+# without running `kubectl port-forward`. If you cannot recreate the cluster, use port-forward instead
+# (see k8s/zabbix/README.md).
+#
+# Without host mapping or port-forward, `nc "${MONITORING_TAILSCALE_IP}" 31051` from another machine
+# often fails because NodePort stays inside the kind node container.
+#
+# Merge `extraPortMappings` into your Monitoring kind config if you already map 80/443 — do not duplicate blindly.
+# Changing extraPortMappings requires: kind delete cluster + create again (then redeploy Zabbix).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 31051
+        hostPort: 31051
+        protocol: TCP

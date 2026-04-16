@@ -1,0 +1,16 @@
+flowchart TB
+  subgraph tailscale [Private network e.g. Tailscale]
+    subgraph mon [Monitoring Mac — Kubernetes cluster kind-monitoring]
+      PM[Prometheus Grafana kube-prometheus-stack]
+      ELK[Elasticsearch Kibana]
+      ZS[Zabbix Server Web DB]
+    end
+    subgraph app [App Mac — Kubernetes cluster kind-get-cookin]
+      GC[Get-cookin Helm release Ingress workloads]
+      FD[Fluentd log agents]
+      ZA[Zabbix Agent DaemonSet]
+    end
+  end
+  PM -->|remote scrape targets on app Ingress :80| GC
+  FD -->|log stream to ES| ELK
+  ZA -->|agent to Zabbix trapper :10051| ZS

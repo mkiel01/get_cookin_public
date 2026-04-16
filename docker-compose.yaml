@@ -1,0 +1,142 @@
+# Docker Compose Configuration for Get Cookin' Recipe App
+#
+# IMPORTANT: Requires .env file in the same directory!
+# - Copy .env.example to .env and fill in your credentials
+# - Never commit .env to git (it's in .gitignore)
+# - .env variables are automatically loaded by Docker Compose
+#
+# Services:
+# - postgres: PostgreSQL database (port 5432)
+# - recipes-service: Backend API (Express/Node.js on port 4000)
+# - frontend: Next.js frontend (port 3000)
+# - pgadmin: Database admin UI (port 5050)
+#
+# Usage:
+# - Start all services: docker compose up
+# - Start with rebuild: docker compose up --build
+# - Stop all services: docker compose down
+# - View logs: docker compose logs -f [service-name]
+# - Execute commands: docker exec -it [container-name] bash
+#
+# Data persistence:
+# - postgres_data volume: Database files persist between restarts
+# - images_stored_on_my_computer: Recipe images mapped to host filesystem
+#
+# Networking (production-like on localhost):
+# - Postgres, Redis: NOT published to the host (only reachable inside the compose network).
+# - Frontend + API: bound to 127.0.0.1 only (not exposed on LAN interfaces).
+# - PgAdmin: optional; start with --profile tools (see pgadmin service).
+
+services:
+  # PostgreSQL Database
+  # - Stores all application data (users, recipes, inventory, products)
+  # - Data persists in postgres_data volume
+  # - Not published: use `docker compose exec postgres psql -U ...` for shell access
+  # - Credentials loaded from .env file (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)
+  # - Server config: k8s/helm/get-cookin/files/ (same files as Helm postgres-config ConfigMap)
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./k8s/helm/get-cookin/files/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./k8s/helm/get-cookin/files/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+
+  # Backend API Service (Express/Node.js)
+  # - Handles authentication, recipes, inventory, products, image uploads
+  # - Connects to postgres via DATABASE_URL (uses service name as hostname)
+  # - Graceful shutdown with 10s grace period (closes DB connections properly)
+  # - Images volume mapped to host for persistence across container rebuilds
+  # - All sensitive credentials loaded from .env file (JWT_SECRET, DATABASE_URL)
+  recipes-service:
+    build: ./recipes-service
+    container_name: recipes-service
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      REDIS_URL: redis://redis:6379
+      # Optional (production): JWT_ISSUER, JWT_AUDIENCE, JWT_EXPIRES_DAYS, AUTH_COOKIE_NAME, JWT_COOKIE_SECURE, JWT_COOKIE_SAMESITE, AUTH_COOKIE_DOMAIN, TRUST_PROXY
+    ports:
+      - "127.0.0.1:4000:4000"
+    stop_grace_period: 10s  # Allow time for graceful shutdown (closes HTTP server + DB pool)
+    volumes:
+      - ./images_stored_on_my_computer:/app/images_stored_on_my_computer  # Recipe images persist on host
+
+  # Frontend Service (Next.js)
+  # - User interface for browsing recipes, managing inventory, etc.
+  # - Connects to backend via API_URL
+  # - NOTE: Browser requests use localhost:4000, not recipes-service:4000 (docker service names don't work in browser)
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    restart: always
+    depends_on:
+      - recipes-service
+    environment:
+      NODE_ENV: production
+      API_URL: ${API_URL:-http://recipes-service:4000/api}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://recipes-service:4000}
+      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-token}
+      # Optional GA4 ID (G-...). Empty = no cookie banner / no analytics.
+      GA_MEASUREMENT_ID: ${GA_MEASUREMENT_ID:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  # PgAdmin (optional): not started by default — run: docker compose --profile tools up -d
+  # - Access: http://127.0.0.1:5050 — To connect: Host=postgres, Port=5432
+  # - Credentials from .env (PGADMIN_EMAIL, PGADMIN_PASSWORD)
+  pgadmin:
+    profiles:
+      - tools
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "127.0.0.1:5050:80"
+    depends_on:
+      - postgres
+
+  # Redis Cache
+  # - In-memory data store for caching frequently accessed data (e.g. recipes)
+  # - Speeds up app performance by reducing database load
+  # - Data is temporary and expires automatically
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    volumes:
+      - redis_data:/data  # Optional: Persist cache data across restarts
+
+# Persistent Storage Volumes
+# - postgres_data: Database files persist between container restarts/rebuilds
+# - redis_data: Redis data persists across container restarts (optional)
+# - Stored in Docker's volume directory (not in project folder)
+# - View volumes: docker volume ls
+# - Inspect: docker volume inspect get_cookin_postgres_data
+# - Backup: docker exec postgres pg_dump -U recipes recipesdb > backup.sql
+volumes:
+  postgres_data:
+  redis_data:

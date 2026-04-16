@@ -1,0 +1,19 @@
+# Exposes Elasticsearch HTTP on the kind host at NodePort 30200 so another Mac (Server) can ship
+# Fluentd logs over Tailscale to MONITORING_TAILSCALE_IP:30200 — see docs/logging-elk.md.
+# In-cluster clients (Kibana) still use the ClusterIP/headless Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-nodeport
+  namespace: logging
+  labels:
+    app: elasticsearch
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 9200
+      targetPort: http
+      nodePort: 30200
+  selector:
+    app: elasticsearch

@@ -1,0 +1,15 @@
+# Copy to values-docker-hub.yaml (gitignored) or pass with: helm upgrade --install ... -f k8s/helm/get-cookin/values-docker-hub.yaml
+# Replace YOUR_DOCKERHUB_USERNAME with your Docker Hub namespace.
+
+recipesService:
+  image:
+    repository: YOUR_DOCKERHUB_USERNAME/get-cookin-recipes-service
+    tag: latest
+    pullPolicy: Always
+
+# Optional: pull frontend from registry too (CI pushes get-cookin-frontend).
+# frontend:
+#   image:
+#     repository: YOUR_DOCKERHUB_USERNAME/get-cookin-frontend
+#     tag: latest
+#     pullPolicy: Always

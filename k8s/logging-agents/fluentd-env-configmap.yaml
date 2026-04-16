@@ -1,0 +1,13 @@
+# On the Server cluster, Fluentd must reach Elasticsearch on Monitoring: Tailscale IP + NodePort 30200.
+# Set FLUENT_ES_HOST to the same IPv4 as MONITORING_TAILSCALE_IP in k8s/monitoring.secret.env (edit this file before apply).
+# Do not commit a real IP if the repo is shared — replace locally only.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-env
+  namespace: logging
+  labels:
+    app: fluentd
+data:
+  FLUENT_ES_HOST: "100.123.145.51"
+  FLUENT_ES_PORT: "30200"

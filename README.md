@@ -8,6 +8,16 @@ This repository documents **how Get Cookin’ is deployed and operated**: Kubern
 
 Get Cookin’ is a **recipe-management web application**: accounts, inventory, recipe search and editing, and image storage behind an API and a web UI. What follows describes the **Kubernetes and observability setup** that runs that service — not the app codebase or **database contents** (including seeds).
 
+**Live site:** [getcookin.online](https://getcookin.online/)
+
+### Screenshots (production UI)
+
+![Get Cookin — home and recipe browse](images_for_readme/1.png)
+
+![Get Cookin — UI screenshot 2](images_for_readme/2.png)
+
+![Get Cookin — UI screenshot 3](images_for_readme/3.png)
+
 ## How it runs (reality)
 
 The setup this repo describes is **Kubernetes on two physical Macs**, each running its own **kind** cluster:
@@ -51,7 +61,7 @@ The **application** Helm chart is under `k8s/helm/get-cookin/`. **Monitoring, lo
 | `k8s/helm/monitoring/` | kube-prometheus-stack-style values; remote scrape config for the app cluster |
 | `k8s/logging*` , `k8s/monitoring*` | Fluentd, Elasticsearch/Kibana, scrape ingress / exporters |
 | `k8s/zabbix/` | Zabbix Helm values, agents, automation |
-| `.github/workflows/` | CI that builds and publishes **container images** using repository secrets (no credentials in YAML) |
+| `.github/workflows/` | Placeholder workflow (Docker build **disabled** here — no app build context in this repo; see workflow file) |
 | `docker-compose.yaml` | Legacy / reference multi-service compose (not the primary live path described above) |
 
 Example and template files (e.g. `*.example`, `*.template`) show **shape only**; real env files and overrides stay local and are listed in `.gitignore`.
